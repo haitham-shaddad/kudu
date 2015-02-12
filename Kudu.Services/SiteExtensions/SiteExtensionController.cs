@@ -1,11 +1,13 @@
-﻿using Kudu.Contracts.SiteExtensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Web;
 using System.Web.Http;
+using Kudu.Contracts.SiteExtensions;
+using Kudu.Services.Arm;
 
 namespace Kudu.Services.SiteExtensions
 {
@@ -55,18 +57,18 @@ namespace Kudu.Services.SiteExtensions
         }
 
         [HttpPut]
-        public async Task<SiteExtensionInfo> InstallExtension(string id, SiteExtensionInfo requestInfo)
+        public async Task<HttpResponseMessage> InstallExtension(string id, SiteExtensionInfo requestInfo)
         {
             if (requestInfo == null)
             {
                 requestInfo = new SiteExtensionInfo();
             }
 
-            SiteExtensionInfo extension;
+            Tuple<bool, SiteExtensionInfo> result;
 
             try
             {
-                extension = await _manager.InstallExtension(id, requestInfo.Version, requestInfo.FeedUrl);
+                result = await _manager.InstallExtension(id, requestInfo.Version, requestInfo.FeedUrl);
             }
             catch (WebException e)
             {
@@ -79,12 +81,20 @@ namespace Kudu.Services.SiteExtensions
                 throw new HttpResponseException(Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Site extension install exception. The package might be invalid.", e));
             }
 
-            if (extension == null)
+            if (result == null)
             {
                 throw new HttpResponseException(Request.CreateErrorResponse(HttpStatusCode.NotFound, "Could not find " + id));
             }
 
-            return extension;
+            // TODO: xiaowu, when update to real csm async, should return "Accepted" instead of "OK"
+            var responseMessage = Request.CreateResponse(HttpStatusCode.OK, ArmUtils.AddEnvelopeOnArmRequest<SiteExtensionInfo>(result.Item2, Request));
+
+            if (result.Item1)
+            {
+                responseMessage.Headers.Add("X-MS-SITE-OPERATION", Constants.SiteOperationRecycle);
+            }
+
+            return responseMessage;
         }
 
         [HttpDelete]

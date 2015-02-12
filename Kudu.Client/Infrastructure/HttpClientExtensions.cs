@@ -93,5 +93,22 @@ namespace Kudu.Client.Infrastructure
 
             return JsonConvert.DeserializeObject<TOutput>(content);
         }
+
+        public static async Task<HttpResponseResult<TOutput>> RichPutJsonAsync<TInput, TOutput>(this HttpClient client, string url, TInput param)
+        {
+            HttpResponseMessage response = await client.PutAsJsonAsync(url, param);
+            var result = new HttpResponseResult<TOutput>();
+
+            string content = await response.EnsureSuccessful().Content.ReadAsStringAsync();
+            result.Body = JsonConvert.DeserializeObject<TOutput>(content);
+            result.Headers = new Dictionary<string, IEnumerable<string>>();
+
+            foreach (var item in response.Headers)
+            {
+                result.Headers.Add(item.Key, item.Value);
+            }
+
+            return result;
+        }
     }
 }

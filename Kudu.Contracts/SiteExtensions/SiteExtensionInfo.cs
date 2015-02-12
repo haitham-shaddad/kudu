@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using NuGet;
+using Kudu.Contracts.Infrastructure;
 using Newtonsoft.Json;
 using NuGet.Client.VisualStudio;
 
 namespace Kudu.Contracts.SiteExtensions
 {
     // This is equivalent to NuGet.IPackage
-    public class SiteExtensionInfo
+    public class SiteExtensionInfo : INamedObject
     {
         public enum SiteExtensionType
         {
@@ -199,6 +199,11 @@ namespace Kudu.Contracts.SiteExtensions
         {
             get;
             set;
+        }
+
+        public string Name
+        {
+            get { return this.Id; }
         }
     }
 }
