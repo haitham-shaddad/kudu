@@ -64,7 +64,7 @@ namespace Kudu.Services.SiteExtensions
                 requestInfo = new SiteExtensionInfo();
             }
 
-            Tuple<bool, SiteExtensionInfo> result;
+            SiteExtensionInfo result;
 
             try
             {
@@ -87,11 +87,17 @@ namespace Kudu.Services.SiteExtensions
             }
 
             // TODO: xiaowu, when update to real csm async, should return "Accepted" instead of "OK"
-            var responseMessage = Request.CreateResponse(HttpStatusCode.OK, ArmUtils.AddEnvelopeOnArmRequest<SiteExtensionInfo>(result.Item2, Request));
+            var responseMessage = Request.CreateResponse(HttpStatusCode.OK, ArmUtils.AddEnvelopeOnArmRequest<SiteExtensionInfo>(result, Request));
 
-            if (result.Item1)
+            if (result != null
+                && result.InstalledDateTime.HasValue
+                && result.InstalledDateTime.Value > HttpContext.Current.Timestamp.ToUniversalTime()
+                && ArmUtils.IsArmRequest(Request))
             {
-                responseMessage.Headers.Add("X-MS-SITE-OPERATION", Constants.SiteOperationRecycle);
+                // Populate this header if 
+                //      Request is from ARM
+                //      Installation action is performed
+                responseMessage.Headers.Add("X-MS-SITE-OPERATION", Constants.SiteOperationRestart);
             }
 
             return responseMessage;

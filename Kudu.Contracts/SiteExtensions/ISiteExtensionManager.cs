@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Kudu.Contracts.SiteExtensions
@@ -17,8 +16,7 @@ namespace Kudu.Contracts.SiteExtensions
         /// <summary>
         /// Install or update a site extension
         /// </summary>
-        /// <returns>boolean indicate whether a new installation was performed. SiteExtensionInfo object will be return if installed or already existed, null if package not found.</returns>
-        Task<Tuple<bool, SiteExtensionInfo>> InstallExtension(string id, string version, string feedUrl);
+        Task<SiteExtensionInfo> InstallExtension(string id, string version, string feedUrl);
 
         Task<bool> UninstallExtension(string id);
     }

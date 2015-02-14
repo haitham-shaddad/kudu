@@ -65,6 +65,6 @@ namespace Kudu
         }
 
         public const string SiteOperationHeaderKey = "X-MS-SITE-OPERATION";
-        public const string SiteOperationRecycle = "recycle";
+        public const string SiteOperationRestart = "restart";
     }
 }

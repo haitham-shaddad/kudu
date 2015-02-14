@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Kudu.Contracts.SiteExtensions;
 using Newtonsoft.Json;
 
 namespace Kudu.Client.Infrastructure
@@ -87,28 +88,28 @@ namespace Kudu.Client.Infrastructure
 
         public static async Task<TOutput> PutJsonAsync<TInput, TOutput>(this HttpClient client, string url, TInput param)
         {
-            HttpResponseMessage result = await client.PutAsJsonAsync(url, param);
-
-            string content = await result.EnsureSuccessful().Content.ReadAsStringAsync();
-
-            return JsonConvert.DeserializeObject<TOutput>(content);
-        }
-
-        public static async Task<HttpResponseResult<TOutput>> RichPutJsonAsync<TInput, TOutput>(this HttpClient client, string url, TInput param)
-        {
             HttpResponseMessage response = await client.PutAsJsonAsync(url, param);
-            var result = new HttpResponseResult<TOutput>();
-
             string content = await response.EnsureSuccessful().Content.ReadAsStringAsync();
-            result.Body = JsonConvert.DeserializeObject<TOutput>(content);
-            result.Headers = new Dictionary<string, IEnumerable<string>>();
 
-            foreach (var item in response.Headers)
+            var outputType = typeof(TOutput);
+            if (outputType.Name.Equals("HttpResponseResult`1"))
             {
-                result.Headers.Add(item.Key, item.Value);
+                Type bodyType = outputType.GenericTypeArguments[0]; // HttpResponseResult<T> takes one generic type
+                var bodyObject = JsonConvert.DeserializeObject(value: content, type: bodyType);
+                var tmpBody = JsonConvert.DeserializeObject<SiteExtensionInfo>(content);
+                var tmpBody2 = JsonConvert.DeserializeObject(content, type: typeof(SiteExtensionInfo));
+                var headerDict = new Dictionary<string, IEnumerable<string>>();
+
+                foreach (var item in response.Headers)
+                {
+                    headerDict.Add(item.Key, item.Value);
+                }
+
+                // match constructor "HttpResponseResult(IDictionary<string, IEnumerable<string>> headers, T body)"
+                return (TOutput)Activator.CreateInstance(outputType, headerDict, bodyObject);
             }
 
-            return result;
+            return JsonConvert.DeserializeObject<TOutput>(content);
         }
     }
 }

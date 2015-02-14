@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Kudu.Client.Infrastructure;
 using Kudu.Contracts.SiteExtensions;
+using Kudu.Services.Arm;
 using Newtonsoft.Json.Linq;
 
 namespace Kudu.Client.SiteExtensions
@@ -115,13 +116,14 @@ namespace Kudu.Client.SiteExtensions
             return await Client.GetJsonAsync<SiteExtensionInfo>(url.ToString());
         }
 
-        public async Task<HttpResponseResult<SiteExtensionInfo>> InstallExtension(string id, string version = null, string feedUrl = null)
+        public async Task<HttpResponseResult<T>> InstallExtension<T>(string id, string version = null, string feedUrl = null)
         {
             var json = new JObject();
             json["version"] = version;
             json["feed_url"] = feedUrl;
 
-            return await Client.RichPutJsonAsync<JObject, SiteExtensionInfo>("siteextensions/" + id, json);
+            UpdateHeaderIfGoingToBeArmRequest(typeof(T));
+            return await Client.PutJsonAsync<JObject, HttpResponseResult<T>>("siteextensions/" + id, json);
         }
 
         public async Task<bool> UninstallExtension(string id)
@@ -132,6 +134,23 @@ namespace Kudu.Client.SiteExtensions
 
             HttpResponseMessage result = await Client.DeleteAsync(new Uri(url.ToString()));
             return await result.EnsureSuccessful().Content.ReadAsAsync<bool>();
+        }
+
+        private bool UpdateHeaderIfGoingToBeArmRequest(Type responseEntryType)
+        {
+            var isArmRequest = responseEntryType.Name.Equals("ArmEntry`1");
+            var containsArmHeader = Client.DefaultRequestHeaders.Contains(ArmUtils.GeoLocationHeaderKey);
+
+            if (isArmRequest && !containsArmHeader)
+            {
+                Client.DefaultRequestHeaders.Add(ArmUtils.GeoLocationHeaderKey, "");
+            }
+            else if (!isArmRequest && containsArmHeader)
+            {
+                Client.DefaultRequestHeaders.Remove(ArmUtils.GeoLocationHeaderKey);
+            }
+
+            return isArmRequest;
         }
     }
 }

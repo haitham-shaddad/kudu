@@ -260,14 +260,14 @@ namespace Kudu.Core.SiteExtensions
         }
 
         // <inheritdoc />
-        public async Task<Tuple<bool, SiteExtensionInfo>> InstallExtension(string id, string version, string feedUrl)
+        public async Task<SiteExtensionInfo> InstallExtension(string id, string version, string feedUrl)
         {
             ITracer tracer = _traceFactory.GetTracer();
 
             if (_preInstalledExtensionDictionary.ContainsKey(id))
             {
                 tracer.Trace("Pre-installed site extension found: {0}, not going to perform new installation.", id);
-                return new Tuple<bool, SiteExtensionInfo>(false, EnablePreInstalledExtension(_preInstalledExtensionDictionary[id]));
+                return EnablePreInstalledExtension(_preInstalledExtensionDictionary[id]);
             }
             else
             {
@@ -276,8 +276,7 @@ namespace Kudu.Core.SiteExtensions
                 {
                     // package already installed, return package from local repo.
                     tracer.Trace("Site extension {0} with version {1} from {2} already installed.", id, version, feedUrl);
-
-                    return new Tuple<bool, SiteExtensionInfo>(false, await GetLocalExtension(id));
+                    return await GetLocalExtension(id);
                 }
 
                 JsonSettings siteExtensionSettings = GetSettingManager(id);
@@ -318,11 +317,9 @@ namespace Kudu.Core.SiteExtensions
                             new KeyValuePair<string, JToken>(_installUtcTimestampSetting, DateTime.UtcNow.ToString("u"))
                         });
                     }
-
-                    return new Tuple<bool, SiteExtensionInfo>(true, await ConvertLocalPackageToSiteExtensionInfo(localPackage, checkLatest: true));
                 }
 
-                return new Tuple<bool, SiteExtensionInfo>(false, null);
+                return await ConvertLocalPackageToSiteExtensionInfo(localPackage, checkLatest: true);
             }
         }
 

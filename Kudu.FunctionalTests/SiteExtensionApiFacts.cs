@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Kudu.Client.Infrastructure;
 using Kudu.Contracts.SiteExtensions;
 using Kudu.Core.Infrastructure;
+using Kudu.Services.Arm;
 using Kudu.TestHarness;
 using Xunit;
 using Xunit.Extensions;
@@ -63,9 +64,10 @@ namespace Kudu.FunctionalTests
 
                 // install
                 TestTracer.Trace("Install an extension by id: '{0}' and version: '{1}'", testPackageId, testPackageVersion);
-                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension(testPackageId, version: testPackageVersion, feedUrl: feedEndpoint);
+                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension<SiteExtensionInfo>(testPackageId, version: testPackageVersion, feedUrl: feedEndpoint);
                 Assert.Equal(testPackageId, richResult.Body.Id);
                 Assert.Equal(testPackageVersion, richResult.Body.Version);
+                Assert.False(richResult.Headers.ContainsKey(Constants.SiteOperationHeaderKey)); // only ARM request will have SiteOperation header
 
                 // uninstall
                 TestTracer.Trace("Uninstall an extension by id: '{0}'", testPackageId);
@@ -104,7 +106,7 @@ namespace Kudu.FunctionalTests
                 }
 
                 // install/update
-                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension(expected.Id);
+                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension<SiteExtensionInfo>(expected.Id);
                 Assert.Equal(expected.Id, richResult.Body.Id);
                 Assert.Equal(expected.Version, richResult.Body.Version);
 
@@ -125,13 +127,13 @@ namespace Kudu.FunctionalTests
                 Assert.False(results.Exists(ext => ext.Id == expected.Id), "After deletion extension " + expected.Id + " should not exist.");
 
                 // install from non-default endpoint
-                richResult = await manager.InstallExtension("bootstrap", version: "3.0.0", feedUrl: "http://www.nuget.org/api/v2/");
+                richResult = await manager.InstallExtension<SiteExtensionInfo>("bootstrap", version: "3.0.0", feedUrl: "http://www.nuget.org/api/v2/");
                 Assert.Equal("bootstrap", richResult.Body.Id);
                 Assert.Equal("3.0.0", richResult.Body.Version);
                 Assert.Equal("http://www.nuget.org/api/v2/", richResult.Body.FeedUrl);
 
                 // update site extension installed from non-default endpoint
-                richResult = await manager.InstallExtension("bootstrap");
+                richResult = await manager.InstallExtension<SiteExtensionInfo>("bootstrap");
                 Assert.Equal("bootstrap", richResult.Body.Id);
                 Assert.Equal("http://www.nuget.org/api/v2/", richResult.Body.FeedUrl);
             });
@@ -168,20 +170,20 @@ namespace Kudu.FunctionalTests
 
                 // install from non-default endpoint
                 TestTracer.Trace("Install package '{0}'-'{1}' fresh from '{2}'.", latestPackage.Id, latestPackage.Version, feedEndpoint);
-                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension(testPackageId, version: latestPackage.Version, feedUrl: feedEndpoint);
-                Assert.Equal(latestPackage.Id, richResult.Body.Id);
-                Assert.Equal(latestPackage.Version, richResult.Body.Version);
-                Assert.Equal(feedEndpoint, richResult.Body.FeedUrl);
-                Assert.True(richResult.Headers[Constants.SiteOperationHeaderKey].Contains(Constants.SiteOperationRecycle));
+                HttpResponseResult<ArmEntry<SiteExtensionInfo>> richResult = await manager.InstallExtension<ArmEntry<SiteExtensionInfo>>(id: testPackageId, version: latestPackage.Version, feedUrl: feedEndpoint);
+                Assert.Equal(latestPackage.Id, richResult.Body.Properties.Id);
+                Assert.Equal(latestPackage.Version, richResult.Body.Properties.Version);
+                Assert.Equal(feedEndpoint, richResult.Body.Properties.FeedUrl);
+                Assert.True(richResult.Headers[Constants.SiteOperationHeaderKey].Contains(Constants.SiteOperationRestart));
 
                 TestTracer.Trace("Try to update package '{0}' without given a feed.", testPackageId);
                 // Not passing feed endpoint will default to feed endpoint from installed package
                 // Update should return right away, expecting code to look up from feed that store in local package
                 // since we had installed the latest package, there is nothing to update.
                 // We shouldn`t see any site operation header value
-                richResult = await manager.InstallExtension(testPackageId);
-                Assert.Equal(latestPackage.Id, richResult.Body.Id);
-                Assert.Equal(feedEndpoint, richResult.Body.FeedUrl);
+                richResult = await manager.InstallExtension<ArmEntry<SiteExtensionInfo>>(testPackageId);
+                Assert.Equal(latestPackage.Id, richResult.Body.Properties.Id);
+                Assert.Equal(feedEndpoint, richResult.Body.Properties.FeedUrl);
                 Assert.False(richResult.Headers.ContainsKey(Constants.SiteOperationHeaderKey));
             });
         }
@@ -217,7 +219,7 @@ namespace Kudu.FunctionalTests
                 }
 
                 // install/update
-                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension(expected.Id);
+                HttpResponseResult<SiteExtensionInfo> richResult = await manager.InstallExtension<SiteExtensionInfo>(expected.Id);
                 Assert.Equal(expected.Id, richResult.Body.Id);
                 Assert.Equal(expected.Version, richResult.Body.Version);
 
@@ -256,7 +258,7 @@ namespace Kudu.FunctionalTests
                 }
 
                 TestTracer.Trace("Install site extension with jobs");
-                await manager.InstallExtension("filecounterwithwebjobs", null, "https://www.myget.org/F/amitaptest/");
+                await manager.InstallExtension<SiteExtensionInfo>("filecounterwithwebjobs", null, "https://www.myget.org/F/amitaptest/");
 
                 TestTracer.Trace("Verify jobs were deployed");
                 await OperationManager.AttemptAsync(async () =>

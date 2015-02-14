@@ -201,6 +201,7 @@ namespace Kudu.Contracts.SiteExtensions
             set;
         }
 
+        [JsonProperty(PropertyName = "name")]
         public string Name
         {
             get { return this.Id; }
